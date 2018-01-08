@@ -12,6 +12,7 @@ logs
 *.log
 coverage
 config.json
+config_old.json
 .vscode
 .idea
 .python-version
