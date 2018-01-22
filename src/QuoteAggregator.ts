@@ -1,13 +1,14 @@
 ﻿import { injectable, inject } from 'inversify';
 import { ConfigStore, BrokerConfig, QuoteSide, Broker, Quote } from './types';
-import { getLogger } from './logger';
+import { getLogger } from '@bitr/logger';
 import * as _ from 'lodash';
 import symbols from './symbols';
 import QuoteImpl from './QuoteImpl';
 import BrokerAdapterRouter from './BrokerAdapterRouter';
+import { DateTime, Interval } from 'luxon';
 
 @injectable()
-export default class QuoteAggregator  {
+export default class QuoteAggregator {
   private readonly log = getLogger(this.constructor.name);
   private timer;
   private isRunning: boolean;
@@ -35,7 +36,7 @@ export default class QuoteAggregator  {
     this.log.debug('Stopped Quote Aggregator.');
   }
 
-  onQuoteUpdated: (quotes: Quote[]) => Promise<void>;
+  onQuoteUpdated: Map<string, ((quotes: Quote[]) => Promise<void>)> = new Map();
 
   private async aggregate(): Promise<void> {
     if (this.isRunning) {
@@ -62,18 +63,34 @@ export default class QuoteAggregator  {
   private async setQuotes(value: Quote[]): Promise<void> {
     this.quotes = value;
     this.log.debug('New quotes have been set.');
-    if (this.onQuoteUpdated) {
-      this.log.debug('Calling onQuoteUpdated...');
-      await this.onQuoteUpdated(this.quotes);
-      this.log.debug('onQuoteUpdated done.');
-    }
+    this.log.debug('Calling onQuoteUpdated...');
+    const handlerTasks = [...this.onQuoteUpdated.values()].map(handler => handler(this.quotes));
+    await Promise.all(handlerTasks);
+    this.log.debug('onQuoteUpdated done.');
   }
 
   private getEnabledBrokers(): Broker[] {
     return _(this.configStore.config.brokers)
-      .filter((b: BrokerConfig) => b.enabled)
+      .filter(b => b.enabled)
+      .filter(b => this.timeFilter(b))
       .map(b => b.broker)
       .value();
+  }
+
+  private timeFilter(brokerConfig: BrokerConfig): boolean {
+    if (_.isEmpty(brokerConfig.noTradePeriods)) {
+      return true;
+    }
+    const current = DateTime.local();
+    const outOfPeriod = period => {
+      const interval = Interval.fromISO(`${period[0]}/${period[1]}`);
+      if (!interval.isValid) {
+        this.log.warn('Invalid noTradePeriods. Ignoring the config.');
+        return true;
+      }
+      return !interval.contains(current);
+    };
+    return brokerConfig.noTradePeriods.every(outOfPeriod);
   }
 
   private fold(quotes: Quote[], step: number): Quote[] {

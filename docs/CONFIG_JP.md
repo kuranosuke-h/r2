@@ -10,13 +10,11 @@
 |priceMergeSize|number|板情報の細かい価格を集約する。100に設定されているとき、100円刻みにクオートの数量を合計したサマリ板を構築し、その板情報に対し裁定機会の計算を行う。|
 |maxSize|number|取引所に送る注文数量の最大値。仮にこの値よりも大きい数量で裁定可能であっても、この設定値の注文を送信する。|
 |minSize|number|取引所に送るオーダー数量の最小値。裁定機会がこの値より小さい数量の場合、取引を行わない。|
-|minTargetProfit|number|最小目標収益。裁定機会の期待収益がこの値より小さい場合、取引を行わない。|
-|minTargetProfitPercent|number|[Optional] 最小目標収益割合。期待収益の裁定取引の円換算(取引価格*数量)に対する割合(%)がこれよりい小さい場合、取引を行わない。minTargetProfitとminTargetProfitPercentの両方が設定されている場合、両方を上回らない限り取引を行わない。|
+|minTargetProfitPercent|number|最小目標収益割合。期待収益の裁定取引の円換算(取引価格*数量)に対する割合(%)がこれより小さい場合、取引を行わない。|
 |maxTargetProfit|number|[Optional] 最大目標収益。裁定機会の期待収益がこの値より大きい場合、取引を行わない。取引所が不正な価格を提示した場合の安全弁。|
-|maxTargetProfitPercent|number|[Optional] 最大目標収益割合。期待収益の裁定取引の円換算(取引価格*数量)に対する割合(%)がこれよりい大きい場合、取引を行わない。取引所が不正な価格を提示した場合の安全弁。maxTargetProfitとmaxTargetProfitPercentの両方が設定されている場合、両方を下回らない限り取引を行わない。|
-|minExitTargetProfit|number|裁定ポジション解消取引に対する最小目標収益。マイナスの値は裁定ポジション解消のコストを表す。この値より大きい収益(小さいコスト)が望める場合、ポジション解消取引を出す。|
-|minExitTargetProfitPercent|number|[Optional] 裁定ポジション解消取引に対する最小目標収益の割合(%)。minExitTargetProfitと同時に設定されると、両方を上回らないかぎりポジション解消取引を出さない。|
-|exitNetProfitRatio|number|[Optional] オープン時の収益に対し、クローズによって何%の利益を確定するか指定する。このパーセンテージ分だけオープン時からスプレッドが縮小した時、そのオープンペアをクローズする。例えば、オープン時の収益が200かつexitNetProfitRatio=20とすると、クローズのコストが160を下回ったときにR2はクローズオーダーを送信し、40の利益を確定しようとする。(オープンによる収益200, クローズによる費用160 -> 利益40)|
+|maxTargetProfitPercent|number|[Optional] 最大目標収益割合。期待収益の裁定取引の円換算(取引価格*数量)に対する割合(%)がこれより大きい場合、取引を行わない。取引所が不正な価格を提示した場合の安全弁。maxTargetProfitとmaxTargetProfitPercentの両方が設定されている場合、両方を下回らない限り取引を行わない。|
+|exitNetProfitRatio|number|オープン時の収益に対し、クローズによって何%の利益を確定するか指定する。このパーセンテージ分だけオープン時からスプレッドが縮小した時、そのオープンペアをクローズする。例えば、オープン時の収益が200かつexitNetProfitRatio=20とすると、クローズのコストが160を下回ったときにR2はクローズオーダーを送信し、40の利益を確定しようとする。(オープンによる収益200, クローズによる費用160 -> 利益40)|
+|maxTargetVolumePercent|number|[Optional]  数量不足による約定しない状況を回避する為に、裁定可能数量に対する注文量の割合に制限を設ける。この割合を上回らない限り取引を行わない。例えば、maxTargetVolumePercent=50の場合、裁定可能数量が1.00BTCだと注文量は0.5BTC(50%)以下でなければ取引を行わない。|
 |iterationInterval|Millisecond|裁定プロセスのインターバル。この値が3000に設定されている場合、3秒に一回板情報を取得し裁定機会を探る。|
 |positionRefreshInterval|Millisecond|ポジション更新インターバル。|
 |sleepAfterSend|Millisecond|裁定取引完了後、このミリ秒だけ休止する。|
@@ -24,15 +22,16 @@
 |maxRetryCount|number|裁定取引のオーダーを送信後、注文の約定状態をチェックする最大回数。|
 |orderStatusCheckInterval|Millisecond|裁定取引の注文を送信後、注文の約定状態をチェックするインターバル。|
 |onSingleLeg|-|下記「onSingleLeg設定詳細」参照|
+|analytics|-|[ANALYTICS_PLUGIN_JP.md](https://github.com/bitrinjani/r2/blob/master/docs/ANALYTICS_PLUGIN_JP.md)を参照|
 
 *minTargetProfitPercentの例:
 minTargetProfitPercent: 0.1%
 ベストアスク: 800,000円, 0.3 BTC
 ベストビッド: 801,000円, 0.2 BTC
--> MID: 800,500円, 期待収益1,000円、目標数量0.2 BTCとなり、収益の割合は1000 / (800500 * 0.2) = 0.0062、つまり0.62%。
+-> MID: 800,500円, 目標数量0.2BTC,期待収益200円となり、収益の割合は 200 / (800500 * 0.2) = 0.0012、つまり0.12%。
 この値はminTargetProfitPercentである0.1%を上回っているので、取引を送信します。
 
-*ここでのネットエクスポージャーとは、各取引所のポジションを合計した"BTC数量"です。一般にはエクスポージャーには数量ではなく割合を指しますが、簡略化のため数量としています。例えば、Bitflyerで0.1 BTC, Quoineで0.1 BTC, Coincheckでマイナス0.1 BTC(空売り)のとき、ネットエクスポージャーは 0.1 + 0.1 - 0.1 = 0.1 BTCとなります。仮にMaxNetExposure=0.05と設定されていた場合、0.1 > 0.05のためシステムは停止します。
+*ここでのネットエクスポージャーとは、各取引所のポジションを合計した"BTC数量"です。一般にはエクスポージャーには数量ではなく割合を指しますが、簡略化のため数量としています。例えば、Bitflyerで0.1 BTC, Quoineで0.1 BTC, Coincheckでマイナス0.1 BTC(空売り)のとき、ネットエクスポージャーは 0.1 + 0.1 - 0.1 = 0.1 BTCとなります。仮にMaxNetExposure=0.05と設定されていた場合、0.1 > 0.05のため取引は送信しません。
 
 #### onSingleLeg設定詳細
 onSingleLeg設定で裁定ペアの片側だけ約定したときの動作を指定できます。反対売買で約定を取り消すか、未約定オーダーを再送信するか指定できます。
@@ -71,8 +70,10 @@ onSingleLeg設定で裁定ペアの片側だけ約定したときの動作を指
 |secret|string|取引所APIのシークレット|
 |maxLongPosition|number|最大ロングポジション|
 |maxShortPosition|number|最大ショートポジション|
-|cashMarginType(R2のみ変更可)|Cash, MarginOpen or NetOut|オーダータイプ。現金取引、証拠金取引オープン、ネットアウトのどれか。取引所ごとにサポートしているタイプは異なる。下記テーブルを参照。|
-|commissionPercent(R2のみ)|number|取引手数料割合。裁定プロセスが予想利益を計算する際、取引手数料(目標価格 * 目標数量 * (commissionPercent / 100))を期待収益から差し引いた上で、取引を送信するか判断する。|
+|cashMarginType|Cash, MarginOpen or NetOut|オーダータイプ。現金取引、証拠金取引オープン、ネットアウトのどれか。取引所ごとにサポートしているタイプは異なる。下記テーブルを参照。|
+|commissionPercent|number|取引手数料割合。裁定プロセスが予想利益を計算する際、取引手数料(目標価格 * 目標数量 * (commissionPercent / 100))を期待収益から差し引いた上で、取引を送信するか判断する。|
+|noTradePeriods|["開始時間", "終了時間"]のリスト|下記noTradePeriods詳細を参照|
+
 *取引所は最低2つ有効になっている必要があります。
 ### cashMarginType詳細
 |取引所|サポートされるcashMarginType|
@@ -84,6 +85,29 @@ onSingleLeg設定で裁定ペアの片側だけ約定したときの動作を指
 *Coincheckのネットアウトは、取引所APIに存在しない取引タイプのため、アプリケーション内部でどのポジションをクローズするか判断しています。(Quoine APIはネットアウトをネイティブでサポートしています)
 CoincheckのcashMarginTypeをNetOutに設定すると、裁定プロセスはオーダーを送信する前に現在のオープンポジションをチェックします。もしほとんど同じサイズのポジションが見つかれば、そのうち最も古いものに対しクローズオーダーを送信します。(FIFO)
 ここで「ほとんど同じ」とは、1%以内の差異としています。コインチェックは、0.01 BTCの売注文を出すと、発生するポジションの数量が0.010005 BTCなど微妙に違う値になります。この違いを吸収するために1%の差異を許容しています。
+
+### noTradePeriods詳細
+取引を禁止する期間を ["開始時間", "終了時間"] の形式で記述します。その期間、その取引所からの価格配信を除外し価格が配信されていないものとみなします。例えば、bitFlyerの定期メンテナンス時間を除外するために利用できます。
+
+- 例: 一つだけの期間4:00-4:15を禁止したい場合
+
+```json
+    {
+      "broker": "Bitflyer",
+...
+      "noTradePeriods": [["04:00", "04:15"]]
+    },
+```
+
+- 例: 複数の期間を禁止したい場合
+
+```json
+    {
+      "broker": "Bitflyer",
+...
+      "noTradePeriods": [["04:00", "04:15"], ["9:00", "9:30"]]
+    },
+```
 
 ### ログ通知設定 (Slack, LINE通知)
 

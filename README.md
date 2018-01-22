@@ -19,7 +19,7 @@ R2 Bitcoin Arbitrager is an automatic arbitrage trading application targeting Bi
 cd r2
 npm install
 ```
-4. Rename `config_default.json` in src folder to `config.json`
+4. Rename `config_default.json` in the folder to `config.json`
 5. Replace `key` and `secret` fields with your API keys (tokens) and secrets. 
 6. Start the application by `npm start` or `yarn start`.
 ```bash
@@ -51,19 +51,22 @@ R2 supports three exchanges operated in Japan.
 
 |Exchange|Cash|Margin|
 |----|------|-----------|
-|bitFlyer|✔️| |
+|bitFlyer|✔️|✔️*|
 |Quoine|✔️|✔️|
 |Coincheck|✔️|✔️|
 
+*bitFlyer Margin (BTC-FX/JPY) is available as an optional [broker plugin](https://github.com/bitrinjani/bitflyer-fx), not included in this repository.
+
 ## How it works
-1. Every 3 seconds, R2 concurrently fetches quotes from exchanges.
-1. Verifies if the max net exposure (`maxNetExposure` config) is not breached.
+1. Every 3 seconds, R2 downloads quotes from exchanges.
 1. Filters out quotes that are not usable for arbitrage. For example, if `maxShortPosition` config is 0 and the current position is 0 for a broker, the ask quotes for the broker will be filtered out.
-1. Calculates the best ask and the best bid from the filtered quotes. If there is no arbitrage opportunity, R2 waits for the next iteration.
-1. Verifies if there is enough expected profit. If the expected profit is smaller than `minTargetProfit` config, R2 waits for the next iteration.
+1. Calculates the best ask and the best bid from the filtered quotes and checks if the expected profit is larger than the configured minimum value, `minTargetProfitPercent`. If there is no arbitrage opportunity, R2 waits for the next iteration.
 1. R2 concurrently sends a buy leg and a sell leg to each broker that offered the best bid or the best ask.
 1. R2 checks whether the legs are filled or not for the configured period, say 30 seconds.
 1. If the both legs are filled, shows the profit.
+
+After the spread has became smaller than the configured value, `exitNetProfitRatio`, R2 tries to close the pair.
+
 
 ## Architecture Overview
 
@@ -81,13 +84,11 @@ All configurations are stored in `config.json`.
 |priceMergeSize|number|Merges small quotes into the specified price ladder before analyzing arbitrage opportunity.|
 |maxSize|number|Maximum BTC size to be sent to a broker.|
 |minSize|number|Minimum BTC size to be sent to a broker.|
-|minTargetProfit|number|Minimum target profit in JPY. R2 attempts arbitrage if the expected profit calculated from current quotes is larger than minTargetProfit.|
-|minTargetProfitPercent|number|Minimum target profit in percent against notional. Profit percentage against notional is calculated by `100 * profit / (MID price * volume)`. When both minTargetProfit and minTargetProfitPercent is greater than zero, the larger one is effective.|
+|minTargetProfitPercent|number|Minimum target profit in percent against notional. Profit percentage against notional is calculated by `100 * profit / (MID price * volume)`.|
 |maxTargetProfit|number|[Optional] Max target profit. This is a safe-guard for abnormal quotes. If the expected profit is larger than this, R2 won't attempt arbitrage.|
 |maxTargetProfitPercent|number|[Optional] Max target profit in percent.|
-|minExitTargetProfit|number|Min target profit for closing order pairs. If the expected profit of closing existing pairs is larger than minExitTargetProfit, R2 attempts to close the pair.|
-|minExitTargetProfitPercent|number|[Optional] Min target profit in percent for closing order pairs.|
-|exitNetProfitRatio|number|[Optional] R2 attempts to close open pairs when the spread has decreased by this percentage. For example, when the open profit of an open pair is 200 JPY and exitNetProfitRatio is 20(%), R2 closes the pair once the closing cost has became 160.
+|exitNetProfitRatio|number|R2 attempts to close open pairs when the spread has decreased by this percentage. For example, when the open profit of an open pair is 200 JPY and exitNetProfitRatio is 20(%), R2 closes the pair once the closing cost has became 160.|
+|maxTargetVolumePercent|number|[Optional]  In order to execute orders as fast as possible and avoid slippage, R2 checks the volume of the quotes from the exchanges and makes sure the target volume consumes less than this percentage of the volume of the target quote before executing the order|
 |iterationInterval|Millisecond|Time lapse in milliseconds of an iteration. When it's set to 3000, the quotes fetch and the spreads analysis for all the brokers are done every 3 seconds|
 |positionRefreshInterval|Millisecond|Time lapse in milliseconds of position data refresh. Position data is used to check max exposure and long/short availability for each broker.|
 |sleepAfterSend|Millisecond|Time lapse in milliseconds after one arbitrage is done.|
@@ -133,6 +134,7 @@ The onSingleLeg config specifies what action should be taken when only one leg i
 |maxShortPosition|number|Maximum short position allowed for the broker|
 |cashMarginType|Cash, MarginOpen, MarginClose, NetOut|Arbitrage order type. Not all options are supported for each exchange. See the table below.|
 |commissionPercent|number|Comission percentage for each trade. Commission JPY amount is calculated by `target price * target volume * (commissionPercent / 100)`. Arbitrager calculates expected profit by `inversed spread * volume - commission JPY amount`.|  
+|noTradePeriods|list of ["starttime", "endtime"]|See noTradePeriods section below|
 
 #### Supported cashMarginType 
 
@@ -151,6 +153,27 @@ Coincheck's NetOut is artificially handled by R2 because the exchange doesn't su
 3. If not found, the arbitrager opens a new position.
 
 Please note this implementation doesn't close multiple positions by one order.
+
+### noTradePeriods config
+The noTradePeriods config specifies the periods when the quotes from the exchange must be ignored. The config is useful for scheduled maintenance periods, e.g. 4:00-4:15 in bitFlyer.
+
+- Example: Exclude bitFlyer from trading activities between 4:00 am to 4:15 am.
+```json
+    {
+      "broker": "Bitflyer",
+...
+      "noTradePeriods": [["04:00", "04:15"]]
+    },
+```
+
+- Example: Excludes multiple periods
+```json
+    {
+      "broker": "Bitflyer",
+...
+      "noTradePeriods": [["04:00", "04:15"], ["9:00", "9:30"]]
+    },
+```
 
 ### Log files
 All log files are saved under `logs` directory.

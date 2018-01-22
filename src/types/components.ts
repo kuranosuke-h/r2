@@ -1,6 +1,7 @@
 ﻿import { Quote, Broker, Order } from './common';
 import { ConfigRoot } from './config';
 import OrderImpl from '../OrderImpl';
+import { TimeSeries } from '@bitr/chronodb';
 
 export interface BrokerAdapter {
   broker: Broker;
@@ -18,13 +19,20 @@ export interface BrokerMap<T> {
 export type OrderPair = [OrderImpl, OrderImpl];
 
 export interface SpreadAnalysisResult {
-  bestBid: Quote;
-  bestAsk: Quote;
+  bid: Quote;
+  ask: Quote;
   invertedSpread: number;
   availableVolume: number;
   targetVolume: number;
   targetProfit: number;
   profitPercentAgainstNotional: number;
+}
+
+export interface SpreadStat {
+  timestamp: number;
+  byBroker: { [x: string]: { ask?: Quote; bid?: Quote; spread?: number } };
+  bestCase: SpreadAnalysisResult;
+  worstCase: SpreadAnalysisResult;
 }
 
 export interface LimitChecker {
@@ -34,6 +42,7 @@ export interface LimitChecker {
 export interface LimitCheckResult {
   success: boolean;
   reason: string;
+  message: string;
 }
 
 export interface ConfigStore {
@@ -58,3 +67,5 @@ export interface ActivePairStore {
   del(key: string): Promise<void>;
   delAll(): Promise<{}>;
 }
+
+export interface SpreadStatTimeSeries extends TimeSeries<SpreadStat> {}

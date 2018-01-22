@@ -17,3 +17,5 @@ config_old.json
 .idea
 .python-version
 datastore/
+reports/
+sandbox/

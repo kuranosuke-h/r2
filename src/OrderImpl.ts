@@ -1,7 +1,16 @@
 import * as _ from 'lodash';
 import { format } from 'util';
 import { v4 as uuid } from 'uuid';
-import { OrderSide, CashMarginType, OrderType, TimeInForce, OrderStatus, Broker, Order, Execution } from './types';
+import {
+  OrderSide,
+  CashMarginType,
+  OrderType,
+  TimeInForce,
+  OrderStatus,
+  Broker,
+  Order,
+  Execution
+} from './types';
 import { eRound } from './util';
 import t from './intl';
 
@@ -74,9 +83,5 @@ export default class OrderImpl implements Order {
 
   toString(): string {
     return JSON.stringify(this);
-  }
-
-  static calculateCommission(price: number, volume: number, commissionPercent: number): number {
-    return commissionPercent !== undefined ? price * volume * (commissionPercent / 100) : 0;
   }
 }
